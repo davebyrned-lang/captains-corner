@@ -14,6 +14,8 @@ export default function Pricing({
   const [period, setPeriod] = useState<Period>("monthly");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
 
   async function checkout(tier: string) {
     setBusy(tier);
@@ -22,7 +24,7 @@ export default function Pricing({
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier, period }),
+        body: JSON.stringify({ tier, period, promoCode: promoCode.trim() }),
       });
       const data = await res.json();
       if (res.ok && data.url) {
@@ -40,7 +42,7 @@ export default function Pricing({
   return (
     <section id="pricing" className="mt-14">
       <h2 className="text-center text-2xl font-bold text-chalk">
-        Less than a pint, for the whole season
+        Choose your plan
       </h2>
       <p className="mx-auto mt-2 max-w-lg text-center text-sm leading-relaxed text-chalk/55">
         Cancel any time, in two clicks, from your account.
@@ -172,6 +174,47 @@ export default function Pricing({
           {error}
         </p>
       )}
+
+      {/* Promo code */}
+      <div className="mx-auto mt-5 max-w-md text-center">
+        {!promoOpen ? (
+          <button
+            onClick={() => setPromoOpen(true)}
+            className="text-xs text-chalk/45 underline underline-offset-2 transition hover:text-mint"
+          >
+            Have a promo code?
+          </button>
+        ) : (
+          <div>
+            <div className="flex gap-2">
+              <input
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                placeholder="Enter your code"
+                autoFocus
+                className="flex-1 rounded-xl border border-mint/25 bg-ink/60 px-4 py-2.5 text-sm text-chalk placeholder:text-chalk/30 focus:border-mint focus:outline-none"
+              />
+              {promoCode && (
+                <button
+                  onClick={() => {
+                    setPromoCode("");
+                    setPromoOpen(false);
+                    setError(null);
+                  }}
+                  className="rounded-xl border border-chalk/15 px-4 py-2.5 text-sm text-chalk/60 transition hover:text-chalk"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-chalk/40">
+              {promoCode
+                ? "Your code will be applied at checkout. Pick a plan above."
+                : "Codes are applied when you choose a plan."}
+            </p>
+          </div>
+        )}
+      </div>
 
       {currentPlan !== "free" && (
         <p className="mx-auto mt-4 max-w-lg text-center text-xs leading-relaxed text-chalk/40">
