@@ -14,6 +14,7 @@ import { buildContext } from "@/lib/context";
 import { CHAT_SYSTEM_PROMPT, buildUserMessage } from "@/lib/prompt";
 import type { FplEntry } from "@/lib/types";
 import { getProfile } from "@/lib/user";
+import { checkWeekly } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -49,6 +50,13 @@ export async function POST(req: NextRequest) {
 
   const profile = await getProfile();
   if (!profile.signedIn) return text("Please sign in to use the assistant.", 401);
+
+  if (profile.plan !== "premium") {
+    return text(
+      "Chat is a Premier feature. Upgrade to talk through transfers, chips and captaincy with your squad loaded.",
+      402
+    );
+  }
 
   let teamId: number | null = null;
   let playerIds: number[] = [];
@@ -97,6 +105,14 @@ export async function POST(req: NextRequest) {
   const KEEP = Math.max(4, parseInt(process.env.CHAT_HISTORY_TURNS ?? "8", 10) || 8) * 2;
   if (messages.length > KEEP) messages = messages.slice(-KEEP);
   if (messages[0]?.role === "assistant") messages = messages.slice(1);
+
+  const weekly = await checkWeekly("chat", profile.userId ?? "anon", 45);
+  if (!weekly.allowed) {
+    return text(
+      `That's your ${weekly.limit} questions for this week. Your allowance resets on Monday.`,
+      429
+    );
+  }
 
   const ip = (req.headers.get("x-forwarded-for") ?? "anonymous").split(",")[0].trim();
 
