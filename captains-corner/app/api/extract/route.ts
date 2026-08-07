@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getBootstrap, FplError } from "@/lib/fpl";
 import { matchSquad } from "@/lib/match";
 import { checkRateLimit, isSubscriber } from "@/lib/ratelimit";
+import { getProfile } from "@/lib/user";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -41,7 +42,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "The site is not configured yet: ANTHROPIC_API_KEY is missing." }, { status: 500 });
   }
 
-  const ip = (req.headers.get("x-forwarded-for") ?? "anonymous").split(",")[0].trim();
+  const profile = await getProfile();
+  if (!profile.signedIn) {
+    return NextResponse.json(
+      { error: "Please sign in to upload a squad." },
+      { status: 401 }
+    );
+  }
+
+  const ip =
+    profile.userId ??
+    (req.headers.get("x-forwarded-for") ?? "anonymous").split(",")[0].trim();
   if (!(await isSubscriber(ip))) {
     const rate = await checkRateLimit(`extract:${ip}`);
     if (!rate.allowed) {
