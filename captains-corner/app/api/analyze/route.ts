@@ -12,7 +12,7 @@ import {
 } from "@/lib/fpl";
 import { buildContext } from "@/lib/context";
 import { SYSTEM_PROMPT, buildUserMessage, REVIEW_TOOL } from "@/lib/prompt";
-import { checkRateLimit, isSubscriber } from "@/lib/ratelimit";
+import { checkWeekly } from "@/lib/ratelimit";
 import { normalizeReview } from "@/lib/normalize";
 import { runResearch } from "@/lib/research";
 import type { FplEntry } from "@/lib/types";
@@ -85,18 +85,33 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const id = profile.userId ?? clientId(req);
-  if (!(await isSubscriber(id))) {
-    const rate = await checkRateLimit(id);
-    if (!rate.allowed) {
-      return NextResponse.json(
-        {
-          error: `You have used your ${rate.limit} free reviews for today. They reset at midnight UTC.`,
-          upgrade: process.env.PAYWALL_ENABLED === "true",
-        },
-        { status: 429 }
-      );
-    }
+  // Plan gating. A signed-in manager with no plan has not started their trial.
+  const REVIEWS_PER_WEEK: Record<string, number> = {
+    free: 0,
+    classic: 3,
+    premium: 3,
+  };
+  const allowance = REVIEWS_PER_WEEK[profile.plan] ?? 0;
+
+  if (allowance === 0) {
+    return NextResponse.json(
+      {
+        error:
+          "Start your free month to analyse your squad. Thirty days free, then $10 for the rest of the season.",
+        upgrade: "classic",
+      },
+      { status: 402 }
+    );
+  }
+
+  const rate = await checkWeekly("review", profile.userId ?? clientId(req), allowance);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      {
+        error: `That's your ${rate.limit} reviews for this week. Your allowance resets on Monday.`,
+      },
+      { status: 429 }
+    );
   }
 
   const startedAt = Date.now();
