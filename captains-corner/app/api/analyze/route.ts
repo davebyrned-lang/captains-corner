@@ -99,6 +99,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const startedAt = Date.now();
+
   try {
     const [bootstrap, fixtures] = await Promise.all([getBootstrap(), getFixtures()]);
     const entry = teamId ? await getEntry(teamId) : syntheticEntry();
@@ -128,7 +130,9 @@ export async function POST(req: NextRequest) {
 
     // Only reach for the web when the official data is genuinely thin. Each
     // search costs money and seconds, and this all has to fit in 60 of them.
-    const thin = gw.isPreSeason || context.squad.length === 0;
+    // Only reach for the web if there is time left to write the review with it.
+    const elapsed = Date.now() - startedAt;
+    const thin = (gw.isPreSeason || context.squad.length === 0) && elapsed < 12000;
     const research = thin
       ? await runResearch({
           apiKey: process.env.ANTHROPIC_API_KEY,
@@ -143,7 +147,7 @@ export async function POST(req: NextRequest) {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = await anthropic.messages.create({
       model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5",
-      max_tokens: 6000,
+      max_tokens: 4000,
       system: SYSTEM_PROMPT,
       tools: [REVIEW_TOOL],
       tool_choice: { type: "tool", name: "submit_review" },
