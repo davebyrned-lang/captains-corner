@@ -91,7 +91,7 @@ function buildCandidates(
   ownedIds: Set<number>,
   isPreSeason: boolean
 ): Record<string, SquadPlayer[]> {
-  const perPosition = { 1: 6, 2: 14, 3: 18, 4: 12 } as Record<number, number>;
+  const perPosition = { 1: 4, 2: 10, 3: 13, 4: 9 } as Record<number, number>;
   const out: Record<string, SquadPlayer[]> = { GKP: [], DEF: [], MID: [], FWD: [] };
 
   const fixtureScore = new Map<number, number>();

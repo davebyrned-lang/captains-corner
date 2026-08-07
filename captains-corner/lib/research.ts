@@ -15,6 +15,19 @@ export interface ResearchResult {
  * money and seconds, and this runs before the main analysis inside a 60 second
  * budget.
  */
+/**
+ * The briefing is the same for everyone in a given gameweek, so compute it once
+ * and reuse it. On a warm instance this turns a 15 second call into nothing.
+ */
+const cache = new Map<string, { at: number; value: ResearchResult }>();
+const CACHE_MS = 6 * 60 * 60 * 1000;
+
+/** Never let research eat the request budget. Vercel kills us at 60 seconds. */
+const BUDGET_MS = Math.max(
+  5000,
+  Math.min(25000, parseInt(process.env.RESEARCH_TIMEOUT_MS ?? "15000", 10) || 15000)
+);
+
 const DEFAULT_DOMAINS = [
   "premierleague.com",
   "fantasy.premierleague.com",
@@ -35,8 +48,12 @@ export async function runResearch(params: {
 
   if (process.env.ENABLE_WEB_RESEARCH === "false") return null;
 
+  const key = `${gameweekLabel}|${isPreSeason}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
+
   const model = process.env.ANTHROPIC_RESEARCH_MODEL || "claude-haiku-4-5-20251001";
-  const maxUses = Math.max(1, Math.min(6, parseInt(process.env.RESEARCH_MAX_SEARCHES ?? "4", 10) || 4));
+  const maxUses = Math.max(1, Math.min(6, parseInt(process.env.RESEARCH_MAX_SEARCHES ?? "2", 10) || 2));
 
   const domains = (process.env.RESEARCH_DOMAINS || DEFAULT_DOMAINS.join(","))
     .split(",")
@@ -51,7 +68,7 @@ export async function runResearch(params: {
 
 ${focus}
 
-Write a factual briefing of at most 450 words, organised under short headings. Rules:
+Write a factual briefing of at most 250 words, organised under short headings. Rules:
 - Only state things you actually found in the search results. If you could not confirm something, leave it out.
 - Name specific players and clubs. Vague generalities are useless here.
 - Do not give betting or gambling advice.
@@ -60,9 +77,9 @@ Write a factual briefing of at most 450 words, organised under short headings. R
 
   try {
     const anthropic = new Anthropic({ apiKey });
-    const msg = await anthropic.messages.create({
+    const call = anthropic.messages.create({
       model,
-      max_tokens: 1500,
+      max_tokens: 800,
       messages: [{ role: "user", content: prompt }],
       tools: [
         {
@@ -73,6 +90,17 @@ Write a factual briefing of at most 450 words, organised under short headings. R
         } as any,
       ],
     });
+
+    // Whichever finishes first. A slow search must not cost us the review.
+    const msg = await Promise.race([
+      call,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), BUDGET_MS)),
+    ]);
+
+    if (!msg) {
+      console.warn(`Research exceeded ${BUDGET_MS}ms, continuing without it.`);
+      return null;
+    }
 
     const briefing = msg.content
       .filter((b): b is Extract<typeof b, { type: "text" }> => b.type === "text")
@@ -96,11 +124,13 @@ Write a factual briefing of at most 450 words, organised under short headings. R
 
     if (!briefing) return null;
 
-    return {
+    const result: ResearchResult = {
       briefing,
       sources: [...sources.entries()].map(([url, title]) => ({ url, title })),
       searchesUsed,
     };
+    cache.set(key, { at: Date.now(), value: result });
+    return result;
   } catch (e) {
     // Research is a bonus, never a blocker. A failure here must not lose the review.
     console.error("Research pass failed, continuing without it:", e instanceof Error ? e.message : e);
