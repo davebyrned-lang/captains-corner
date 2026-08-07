@@ -67,6 +67,11 @@ export default function Pricing({
               <span className="text-3xl font-bold text-mint">{t.price}</span>
               <span className="text-xs text-chalk/45">{t.cadence}</span>
             </div>
+            {currentPlan === "classic" && t.id === "premium" && (
+              <p className="mt-2 inline-block rounded-md bg-mint/15 px-2.5 py-1 text-xs font-semibold text-mint">
+                $15 to upgrade from Classic
+              </p>
+            )}
             {t.trialDays && (
               <p className="mt-2 inline-block rounded-md bg-teal/15 px-2.5 py-1 text-xs font-semibold text-teal">
                 First {t.trialDays} days free
@@ -119,7 +124,11 @@ export default function Pricing({
                       : "border border-chalk/20 text-chalk hover:border-mint/40"
                   }`}
                 >
-                  {busy === t.id ? "Opening checkout…" : t.cta}
+                  {busy === t.id
+                    ? "Opening checkout…"
+                    : currentPlan === "classic" && t.id === "premium"
+                      ? "Upgrade to Premier"
+                      : t.cta}
                 </button>
               )}
             </div>
@@ -130,6 +139,14 @@ export default function Pricing({
       {error && (
         <p className="mx-auto mt-4 max-w-lg rounded-xl border border-red-400/30 bg-red-400/8 px-4 py-3 text-center text-sm text-red-200">
           {error}
+        </p>
+      )}
+
+      {currentPlan === "classic" && (
+        <p className="mx-auto mt-4 max-w-lg text-center text-xs leading-relaxed text-chalk/40">
+          You pay the $15 difference, not the full $25. If you are still inside
+          your free month you have not been charged anything yet, so upgrading
+          costs the full $25 and cancels the Classic payment that was coming.
         </p>
       )}
 
