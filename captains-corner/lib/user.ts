@@ -15,6 +15,12 @@ export interface Profile {
   plan: Plan;
   teamId: string | null;
   expiresAt: string | null;
+  /**
+   * Player IDs from the last squad read off a screenshot. We store IDs rather
+   * than names and prices so that when we show it back, the prices, injuries
+   * and fixtures are current rather than whatever they were in the image.
+   */
+  squad: number[];
 }
 
 export const ANON: Profile = {
@@ -23,6 +29,7 @@ export const ANON: Profile = {
   plan: "free",
   teamId: null,
   expiresAt: null,
+  squad: [],
 };
 
 export async function getProfile(): Promise<Profile> {
@@ -42,12 +49,20 @@ export async function getProfile(): Promise<Profile> {
       plan = "free";
     }
 
+    const squad = Array.isArray(md.squad)
+      ? (md.squad as unknown[])
+          .map((n) => parseInt(String(n), 10))
+          .filter((n) => Number.isFinite(n) && n > 0)
+          .slice(0, 15)
+      : [];
+
     return {
       userId,
       signedIn: true,
       plan,
       teamId: typeof md.fplTeamId === "string" ? md.fplTeamId : null,
       expiresAt,
+      squad,
     };
   } catch {
     // Never let a Clerk hiccup take the whole app down. Treat as signed out.
@@ -60,6 +75,17 @@ export async function saveTeamId(userId: string, teamId: string): Promise<void> 
   const user = await client.users.getUser(userId);
   await client.users.updateUser(userId, {
     privateMetadata: { ...(user.privateMetadata ?? {}), fplTeamId: teamId },
+  });
+}
+
+export async function saveSquad(userId: string, playerIds: number[]): Promise<void> {
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  await client.users.updateUser(userId, {
+    privateMetadata: {
+      ...(user.privateMetadata ?? {}),
+      squad: playerIds.slice(0, 15),
+    },
   });
 }
 
