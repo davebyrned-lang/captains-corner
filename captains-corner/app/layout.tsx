@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { BRAND } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Captain's Corner — FPL mini-league strategist",
-  description:
-    "Enter your FPL team ID and get an evidence-based gameweek review built to win your mini-league, not the template.",
+  title: `${BRAND.name} ${BRAND.descriptor}`,
+  description: BRAND.subhead,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

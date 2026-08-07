@@ -51,7 +51,7 @@ function playerLine(p: SquadPlayer): string {
   fixtures: ${p.nextFixtures}${news}`;
 }
 
-export function buildUserMessage(ctx: AnalysisContext): string {
+export function buildUserMessage(ctx: AnalysisContext, research?: string | null): string {
   const sections: string[] = [];
 
   sections.push(`# Manager
@@ -110,6 +110,13 @@ ${ctx.miniLeague.standings
       `${s.rank}. ${s.manager} (${s.teamName}) — ${s.total} pts${s.isUser ? "   <-- THIS MANAGER" : ""}`
   )
   .join("\n")}`);
+  }
+
+  if (research && research.trim()) {
+    sections.push(`# Current context gathered from the web
+The FPL data above was thin, so this briefing was researched from public football sources just now. Treat it as current reporting rather than confirmed fact, and say so where it drives a recommendation.
+
+${research.trim()}`);
   }
 
   sections.push(`# Task

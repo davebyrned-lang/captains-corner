@@ -1,20 +1,37 @@
 "use client";
 
 import type { Review } from "@/lib/types";
+import { BRAND } from "@/lib/brand";
 
 export interface Meta {
   managerName: string;
   teamName: string;
   gameweekLabel: string;
   deadline: string;
-  squadValue: number;
-  bank: number;
-  overallPoints: number;
+  squadValue: number | null;
+  bank: number | null;
+  overallPoints: number | null;
   overallRank: number | null;
   miniLeagueName: string | null;
   miniLeagueRank: number | null;
   miniLeagueSize: number | null;
   warnings: string[];
+  sources?: { title: string; url: string }[];
+  researchUsed?: boolean;
+}
+
+const fmtInt = (n: number | null | undefined): string =>
+  typeof n === "number" && Number.isFinite(n) ? n.toLocaleString() : "—";
+
+const fmtMoney = (n: number | null | undefined): string =>
+  typeof n === "number" && Number.isFinite(n) ? `£${n.toFixed(1)}m` : "—";
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded-xl border border-dashed border-chalk/15 px-4 py-6 text-center text-sm text-chalk/40">
+      {children}
+    </p>
+  );
 }
 
 function Section({
@@ -92,10 +109,10 @@ export default function ReviewDisplay({ review, meta }: { review: Review; meta: 
         <p className="text-sm text-chalk/60">{meta.managerName}</p>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            ["Total points", meta.overallPoints.toLocaleString()],
-            ["Overall rank", meta.overallRank?.toLocaleString() ?? "—"],
-            ["Squad value", `£${meta.squadValue.toFixed(1)}m`],
-            ["In the bank", `£${meta.bank.toFixed(1)}m`],
+            ["Total points", fmtInt(meta.overallPoints)],
+            ["Overall rank", fmtInt(meta.overallRank)],
+            ["Squad value", fmtMoney(meta.squadValue)],
+            ["In the bank", fmtMoney(meta.bank)],
           ].map(([k, v]) => (
             <div key={k} className="rounded-lg bg-ink/50 px-3 py-2">
               <p className="text-[10px] uppercase tracking-wide text-chalk/45">{k}</p>
@@ -172,6 +189,12 @@ export default function ReviewDisplay({ review, meta }: { review: Review; meta: 
 
       {/* 3. Transfers */}
       <Section n="3" title="Transfer recommendations">
+        {review.transfers.length === 0 && (
+          <Empty>
+            No transfer recommended. Either the squad is in good shape, or there is
+            not enough data yet to justify a move.
+          </Empty>
+        )}
         <div className="space-y-4">
           {review.transfers.map((t, i) => (
             <div key={i} className="rounded-xl border border-chalk/10 bg-ink/30 p-4">
@@ -199,7 +222,13 @@ export default function ReviewDisplay({ review, meta }: { review: Review; meta: 
       </Section>
 
       {/* 4. Starting XI */}
-      <Section n="4" title={`Starting XI — ${review.starting_xi.formation}`}>
+      <Section n="4" title={review.starting_xi.formation && review.starting_xi.formation !== "Not set" ? `Starting XI, ${review.starting_xi.formation}` : "Starting XI"}>
+        {review.starting_xi.starters.length === 0 && (
+          <Empty>
+            No lineup yet. FPL has not published squads for the new season, so there
+            is nothing to pick from.
+          </Empty>
+        )}
         <div className="flex flex-wrap gap-2">
           {review.starting_xi.starters.map((p) => (
             <span key={p} className="rounded-lg bg-mint/12 px-3 py-1.5 text-sm text-chalk">
@@ -207,9 +236,11 @@ export default function ReviewDisplay({ review, meta }: { review: Review; meta: 
             </span>
           ))}
         </div>
+        {review.starting_xi.bench.length > 0 && (
         <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wide text-chalk/45">
           Bench, in order
         </p>
+        )}
         <div className="flex flex-wrap gap-2">
           {review.starting_xi.bench.map((p, i) => (
             <span key={p} className="rounded-lg bg-chalk/8 px-3 py-1.5 text-sm text-chalk/60">
@@ -244,6 +275,7 @@ export default function ReviewDisplay({ review, meta }: { review: Review; meta: 
 
       {/* 6. Chips */}
       <Section n="6" title="Chip strategy">
+        {review.chip_strategy.length === 0 && <Empty>No chip guidance for this gameweek.</Empty>}
         <div className="overflow-hidden rounded-xl border border-chalk/10">
           {review.chip_strategy.map((c, i) => (
             <div
@@ -260,6 +292,7 @@ export default function ReviewDisplay({ review, meta }: { review: Review; meta: 
 
       {/* 7. Roadmap */}
       <Section n="7" title="Four gameweek roadmap">
+        {review.roadmap.length === 0 && <Empty>No forward plan available yet.</Empty>}
         <div className="space-y-3">
           {review.roadmap.map((r, i) => (
             <div key={i} className="flex gap-4">
@@ -289,10 +322,36 @@ export default function ReviewDisplay({ review, meta }: { review: Review; meta: 
         <Bullets items={review.uncertainties} tone="neutral" />
       </Section>
 
+      {meta.researchUsed && (
+        <Section n="10" title="Sources">
+          <p className="mb-3 text-sm leading-relaxed text-chalk/70">
+            FPL had limited data for this gameweek, so current context was researched
+            from public football sources. Anything drawn from these is reporting rather
+            than confirmed fact.
+          </p>
+          {meta.sources && meta.sources.length > 0 ? (
+            <ul className="space-y-2">
+              {meta.sources.map((s) => (
+                <li key={s.url}>
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="text-sm text-mint underline underline-offset-2 hover:text-mint/80"
+                  >
+                    {s.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-chalk/40">No specific pages were cited.</p>
+          )}
+        </Section>
+      )}
+
       <p className="pb-8 text-center text-xs leading-relaxed text-chalk/35">
-        Captain&apos;s Corner is an analysis tool, not a guarantee. Always check press
-        conferences and confirmed lineups before the deadline. Not affiliated with the
-        Premier League or Fantasy Premier League.
+        {BRAND.disclaimer}
       </p>
     </div>
   );

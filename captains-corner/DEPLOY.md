@@ -1,4 +1,4 @@
-# Getting Captain's Corner live
+# Getting Assistant Manager live
 
 Written for someone who does not write code. Follow it in order. Budget about
 40 minutes for your first time.
@@ -101,6 +101,13 @@ reviews, your cost is roughly 28 cents against £3 of revenue. The margin is
 comfortable; the risk is people hammering the re-run button, which is what the
 rate limit exists to stop.
 
+**Web search costs extra.** When the research fallback kicks in, searches are
+billed at $10 per 1,000, on top of tokens. At the default cap of four searches
+that is about 4 cents added to a review, so a pre-season review costs roughly 11
+cents rather than 7. It only triggers when FPL data is thin, so this mostly
+disappears once the season is underway. Screenshot reading also costs a little
+more than a team ID, since the image itself uses tokens.
+
 **Set a spend limit.** In the Anthropic console, under Billing, set a monthly
 cap. Do this before you tell anyone the URL. It is the difference between a bad
 day and a bad month.
@@ -118,6 +125,9 @@ After changing any of them, go to **Deployments** and click **Redeploy**.
 | `ANTHROPIC_MODEL` | `claude-sonnet-5` | Set to `claude-opus-5` for sharper analysis at roughly five times the cost. Worth testing on your own team before deciding. |
 | `FREE_REVIEWS_PER_DAY` | `2` | Reviews per person per day before they are cut off. |
 | `PAYWALL_ENABLED` | `false` | Leave off until phase 2. |
+| `ENABLE_WEB_RESEARCH` | `true` | Searches public football sources when FPL data is thin. Set to `false` to switch it off entirely. |
+| `RESEARCH_MAX_SEARCHES` | `4` | Hard cap on searches per review. Each one costs a penny. |
+| `ANTHROPIC_RESEARCH_MODEL` | `claude-haiku-4-5-20251001` | Research runs on a fast model so the whole request still fits in 60 seconds. |
 
 ---
 

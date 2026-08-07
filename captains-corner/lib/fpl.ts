@@ -115,7 +115,11 @@ export async function getLeagueStandings(
  * the smallest private league, since that is where rivalries are real.
  */
 export function pickPrimaryLeague(entry: FplEntry): number | null {
-  const priv = entry.leagues.classic.filter(
+  // Between seasons FPL can omit this block entirely, so never assume it exists.
+  const classic = entry?.leagues?.classic;
+  if (!Array.isArray(classic)) return null;
+
+  const priv = classic.filter(
     (l) => l.league_type === "x" && (l.rank_count ?? 0) > 1
   );
   if (priv.length === 0) return null;

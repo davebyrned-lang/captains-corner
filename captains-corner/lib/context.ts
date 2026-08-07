@@ -146,6 +146,8 @@ export function buildContext(params: {
   deadline: string;
   isPreSeason: boolean;
   teamId: number;
+  /** Player IDs read from an uploaded screenshot, used when the API has no picks. */
+  manualElementIds?: number[];
 }): AnalysisContext {
   const {
     bootstrap,
@@ -158,6 +160,7 @@ export function buildContext(params: {
     deadline,
     isPreSeason,
     teamId,
+    manualElementIds,
   } = params;
 
   const teamNames = new Map(bootstrap.teams.map((t) => [t.id, t.short_name]));
@@ -178,6 +181,19 @@ export function buildContext(params: {
         })
       );
     }
+  } else if (manualElementIds && manualElementIds.length) {
+    // Screenshot route. We matched names to real players, so we still get the
+    // full data set: prices, fixtures, expected involvement, the lot.
+    manualElementIds.forEach((id, i) => {
+      const el = elementsById.get(id);
+      if (!el) return;
+      squad.push(
+        toSquadPlayer(el, teamNames, fixtures, gameweek, { onBench: i >= 11 })
+      );
+    });
+    dataWarnings.push(
+      "This squad was read from an uploaded screenshot rather than the FPL API. Player data is real, but captain, vice captain and bench order were not available, so confirm those yourself."
+    );
   } else {
     dataWarnings.push(
       "No squad could be loaded. FPL only exposes a manager's picks after their first deadline has passed, so this is normal pre-season or for a brand new team. Analysis below is general rather than squad-specific."
@@ -190,7 +206,9 @@ export function buildContext(params: {
     );
   }
 
-  const ownedIds = new Set(picks ? picks.picks.map((p) => p.element) : []);
+  const ownedIds = new Set(
+    picks ? picks.picks.map((p) => p.element) : (manualElementIds ?? [])
+  );
 
   // ---- Candidates ----
   const candidates = buildCandidates(
@@ -241,10 +259,10 @@ export function buildContext(params: {
     : 1;
 
   return {
-    managerName: `${entry.player_first_name} ${entry.player_last_name}`,
-    teamName: entry.name,
-    overallPoints: entry.summary_overall_points,
-    overallRank: entry.summary_overall_rank,
+    managerName: `${entry.player_first_name ?? ""} ${entry.player_last_name ?? ""}`.trim() || "Manager",
+    teamName: entry.name || "Your team",
+    overallPoints: entry.summary_overall_points ?? 0,
+    overallRank: entry.summary_overall_rank ?? null,
     gameweek,
     gameweekLabel,
     deadline,

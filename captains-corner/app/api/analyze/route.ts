@@ -13,14 +13,32 @@ import {
 import { buildContext } from "@/lib/context";
 import { SYSTEM_PROMPT, buildUserMessage, REVIEW_TOOL } from "@/lib/prompt";
 import { checkRateLimit, isSubscriber } from "@/lib/ratelimit";
-import type { Review } from "@/lib/types";
+import { normalizeReview } from "@/lib/normalize";
+import { runResearch } from "@/lib/research";
+import type { FplEntry } from "@/lib/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60; // Analysis takes 30-60s. Vercel Hobby caps at 60s; Pro allows more.
+export const maxDuration = 60;
 
 function clientId(req: NextRequest): string {
   const fwd = req.headers.get("x-forwarded-for");
   return (fwd ? fwd.split(",")[0].trim() : null) ?? "anonymous";
+}
+
+/** Used when someone uploads a screenshot without giving us a team ID. */
+function syntheticEntry(): FplEntry {
+  return {
+    id: 0,
+    name: "Your squad",
+    player_first_name: "",
+    player_last_name: "",
+    summary_overall_points: 0,
+    summary_overall_rank: null,
+    summary_event_points: 0,
+    last_deadline_bank: null,
+    last_deadline_value: null,
+    leagues: { classic: [] },
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -31,25 +49,33 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let teamId: number;
+  let teamId: number | null = null;
+  let playerIds: number[] = [];
   try {
     const body = await req.json();
-    teamId = parseInt(String(body.teamId).replace(/\D/g, ""), 10);
+    if (body.teamId !== undefined && body.teamId !== null && String(body.teamId).trim() !== "") {
+      const n = parseInt(String(body.teamId).replace(/\D/g, ""), 10);
+      if (Number.isFinite(n) && n > 0) teamId = n;
+    }
+    if (Array.isArray(body.playerIds)) {
+      playerIds = body.playerIds
+        .map((x: unknown) => parseInt(String(x), 10))
+        .filter((n: number) => Number.isFinite(n) && n > 0)
+        .slice(0, 15);
+    }
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  if (!Number.isFinite(teamId) || teamId <= 0) {
+  if (!teamId && playerIds.length === 0) {
     return NextResponse.json(
-      { error: "That does not look like a valid FPL team ID." },
+      { error: "Give us either a team ID or a squad read from a screenshot." },
       { status: 400 }
     );
   }
 
-  // ---- Rate limit ----
   const id = clientId(req);
-  const subscriber = await isSubscriber(id);
-  if (!subscriber) {
+  if (!(await isSubscriber(id))) {
     const rate = await checkRateLimit(id);
     if (!rate.allowed) {
       return NextResponse.json(
@@ -63,22 +89,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // ---- Gather FPL data in parallel ----
-    const [bootstrap, fixtures, entry] = await Promise.all([
-      getBootstrap(),
-      getFixtures(),
-      getEntry(teamId),
-    ]);
-
+    const [bootstrap, fixtures] = await Promise.all([getBootstrap(), getFixtures()]);
+    const entry = teamId ? await getEntry(teamId) : syntheticEntry();
     const gw = resolveGameweek(bootstrap);
 
-    // Picks come from the last completed gameweek: that is the manager's real
-    // current squad. Pre-season there is nothing to fetch.
-    const picksGw = gw.lastFinished ?? null;
-    const leagueId = pickPrimaryLeague(entry);
+    const picksGw = teamId ? gw.lastFinished : null;
+    const leagueId = teamId ? pickPrimaryLeague(entry) : null;
 
     const [picks, league] = await Promise.all([
-      picksGw ? getPicks(teamId, picksGw) : Promise.resolve(null),
+      picksGw && teamId ? getPicks(teamId, picksGw) : Promise.resolve(null),
       leagueId ? getLeagueStandings(leagueId) : Promise.resolve(null),
     ]);
 
@@ -92,19 +111,32 @@ export async function POST(req: NextRequest) {
       gameweekLabel: gw.label,
       deadline: gw.deadline,
       isPreSeason: gw.isPreSeason,
-      teamId,
+      teamId: teamId ?? 0,
+      manualElementIds: playerIds,
     });
 
-    // ---- Analyse ----
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    // Only reach for the web when the official data is genuinely thin. Each
+    // search costs money and seconds, and this all has to fit in 60 of them.
+    const thin = gw.isPreSeason || context.squad.length === 0;
+    const research = thin
+      ? await runResearch({
+          apiKey: process.env.ANTHROPIC_API_KEY,
+          gameweekLabel: context.gameweekLabel,
+          isPreSeason: gw.isPreSeason,
+          reason: gw.isPreSeason
+            ? "The season has not started, so no current-season statistics exist yet."
+            : "This manager's squad could not be loaded from the API.",
+        })
+      : null;
 
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = await anthropic.messages.create({
       model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5",
       max_tokens: 6000,
       system: SYSTEM_PROMPT,
       tools: [REVIEW_TOOL],
       tool_choice: { type: "tool", name: "submit_review" },
-      messages: [{ role: "user", content: buildUserMessage(context) }],
+      messages: [{ role: "user", content: buildUserMessage(context, research?.briefing) }],
     });
 
     const toolUse = message.content.find((b) => b.type === "tool_use");
@@ -116,20 +148,22 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      review: toolUse.input as Review,
+      review: normalizeReview(toolUse.input),
       meta: {
         managerName: context.managerName,
         teamName: context.teamName,
         gameweekLabel: context.gameweekLabel,
         deadline: context.deadline,
-        squadValue: context.squadValue,
-        bank: context.bank,
-        overallPoints: context.overallPoints,
-        overallRank: context.overallRank,
+        squadValue: Number.isFinite(context.squadValue) ? context.squadValue : 0,
+        bank: Number.isFinite(context.bank) ? context.bank : 0,
+        overallPoints: context.overallPoints ?? 0,
+        overallRank: context.overallRank ?? null,
         miniLeagueName: context.miniLeague?.name ?? null,
         miniLeagueRank: context.miniLeague?.userRank ?? null,
         miniLeagueSize: context.miniLeague?.size ?? null,
         warnings: context.dataWarnings,
+        sources: research?.sources ?? [],
+        researchUsed: Boolean(research),
       },
     });
   } catch (e) {

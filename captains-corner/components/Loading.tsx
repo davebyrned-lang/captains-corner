@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 const STEPS = [
   "Reading your squad from the FPL API",
+  "Checking public sources for current team news",
   "Mapping fixture difficulty for the next five gameweeks",
   "Screening transfer targets on underlying data",
   "Checking your mini-league position and rivals",
