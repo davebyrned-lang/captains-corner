@@ -15,6 +15,7 @@ import { CHAT_SYSTEM_PROMPT, buildUserMessage } from "@/lib/prompt";
 import type { FplEntry } from "@/lib/types";
 import { getProfile } from "@/lib/user";
 import { checkWeekly } from "@/lib/ratelimit";
+import { byId } from "@/lib/tiers";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -106,7 +107,8 @@ export async function POST(req: NextRequest) {
   if (messages.length > KEEP) messages = messages.slice(-KEEP);
   if (messages[0]?.role === "assistant") messages = messages.slice(1);
 
-  const weekly = await checkWeekly("chat", profile.userId ?? "anon", 45);
+  const allowance = byId("premium").chatQuestionsPerWeek;
+  const weekly = await checkWeekly("chat", profile.userId ?? "anon", allowance);
   if (!weekly.allowed) {
     return text(
       `That's your ${weekly.limit} questions for this week. Your allowance resets on Monday.`,
