@@ -12,6 +12,12 @@ import Stripe from "stripe";
 
 export const PRICE_CLASSIC = process.env.STRIPE_PRICE_CLASSIC ?? "";
 export const PRICE_PREMIER = process.env.STRIPE_PRICE_PREMIER ?? "";
+/**
+ * The difference between the two tiers, for someone who has already paid for
+ * Classic. Charging the full $25 on top of their $10 would mean $35 for a $25
+ * product, which is how you generate refund requests instead of upgrades.
+ */
+export const PRICE_UPGRADE = process.env.STRIPE_PRICE_UPGRADE ?? "";
 
 export const TRIAL_DAYS = Math.max(
   0,
