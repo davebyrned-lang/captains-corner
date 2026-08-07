@@ -1,6 +1,6 @@
 # Assistant Manager
 
-*for Fantasy Premier League*
+*for Fantasy Premier League!*
 
 A web app that turns an FPL team ID into a full, evidence-based gameweek review
 aimed at winning your mini-league rather than chasing overall rank.
