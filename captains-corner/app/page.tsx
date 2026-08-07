@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Loading from "@/components/Loading";
 import ReviewDisplay, { type Meta } from "@/components/ReviewDisplay";
+import Chat from "@/components/Chat";
 import { BRAND } from "@/lib/brand";
 import type { Review } from "@/lib/types";
 
@@ -278,7 +279,8 @@ export default function Home() {
       {result && (
         <>
           <ReviewDisplay review={result.review} meta={result.meta} />
-          <div className="pb-10 text-center">
+          <Chat teamId={teamId.trim() || undefined} playerIds={matched?.map((m) => m.id) ?? []} />
+          <div className="pb-10 pt-8 text-center">
             <button
               onClick={() => {
                 setResult(null);
