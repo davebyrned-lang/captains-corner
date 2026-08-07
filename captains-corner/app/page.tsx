@@ -8,6 +8,7 @@ import Chat from "@/components/Chat";
 import Header from "@/components/Header";
 import { useUser } from "@clerk/nextjs";
 import Landing from "@/components/Landing";
+import Pricing from "@/components/Pricing";
 
 import type { Review } from "@/lib/types";
 
@@ -139,6 +140,13 @@ export default function Home() {
           playerIds: matched?.map((m) => m.id) ?? [],
         }),
       });
+      if (res.status === 504) {
+        setError(
+          "That took too long and the server cut it off. This usually clears on a second attempt. If it keeps happening, tell Dave."
+        );
+        return;
+      }
+
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
@@ -147,7 +155,9 @@ export default function Home() {
         setResult(data);
       }
     } catch {
-      setError("Could not reach the server. Check your connection and try again.");
+      setError(
+        "The server did not respond in time. Try again, it usually works on the second go."
+      );
     } finally {
       setLoading(false);
     }
@@ -180,8 +190,24 @@ export default function Home() {
       {/* Signed out: no squad entry until they have an account to attach it to. */}
       {!result && isLoaded && !signedIn && <Landing />}
 
+      {/* Signed in but no plan: they have not started their trial yet. */}
+      {!result && isLoaded && signedIn && plan === "free" && (
+        <div className="mb-4">
+          <div className="rounded-2xl border border-mint/25 bg-slate1/60 p-6 text-center">
+            <p className="text-base font-semibold text-chalk">
+              You&apos;re signed in. Now start your free month.
+            </p>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-chalk/60">
+              Thirty days of Classic at no charge. We take a card so it can carry on
+              afterwards, and you can cancel any time before you are charged.
+            </p>
+          </div>
+          <Pricing signedIn currentPlan={plan} />
+        </div>
+      )}
+
       {/* Mode switch */}
-      {!result && isLoaded && signedIn && (
+      {!result && isLoaded && signedIn && plan !== "free" && (
         <div className="mb-5 flex gap-1 rounded-xl border border-chalk/10 bg-ink/40 p-1">
           {([
             ["id", "Enter team ID"],
@@ -204,7 +230,7 @@ export default function Home() {
       )}
 
       {/* Team ID mode */}
-      {!result && signedIn && mode === "id" && (
+      {!result && signedIn && plan !== "free" && mode === "id" && (
         <form onSubmit={analyse} className="mb-8">
           <div className="flex flex-col gap-3 sm:flex-row">
             <input
@@ -234,7 +260,7 @@ export default function Home() {
       )}
 
       {/* Upload mode */}
-      {!result && signedIn && mode === "upload" && (
+      {!result && signedIn && plan !== "free" && mode === "upload" && (
         <div className="mb-8">
           <label className="block cursor-pointer rounded-xl border border-dashed border-mint/30 bg-ink/40 px-5 py-8 text-center transition hover:border-mint/60 hover:bg-ink/60">
             <input
@@ -350,7 +376,11 @@ export default function Home() {
       {result && (
         <>
           <ReviewDisplay review={result.review} meta={result.meta} />
-          <Chat teamId={teamId.trim() || undefined} playerIds={matched?.map((m) => m.id) ?? []} />
+          <Chat
+            teamId={teamId.trim() || undefined}
+            playerIds={matched?.map((m) => m.id) ?? []}
+            plan={plan}
+          />
           <div className="pb-10 pt-8 text-center">
             <button
               onClick={() => {
