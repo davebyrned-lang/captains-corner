@@ -74,8 +74,7 @@ export default function Landing() {
           </SignInButton>
         </div>
         <p className="mt-3 text-xs text-chalk/35">
-          30 days free, then $10 for the rest of the season. Cancel any time
-          before you are charged.
+          30 days free, then $2 a month. Cancel any time, in two clicks.
         </p>
       </section>
 

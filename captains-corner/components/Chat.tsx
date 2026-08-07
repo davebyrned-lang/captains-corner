@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const MAX_TURNS = 15;
+import { byId } from "@/lib/tiers";
+
+const MAX_TURNS = byId("premium").chatQuestionsPerWeek;
 
 const STARTERS = [
   "What transfers should I make this week?",
@@ -169,7 +171,7 @@ function ChatThread({
       <div className="mb-1 flex items-baseline justify-between gap-3">
         <h2 className="text-lg font-semibold text-chalk">Talk it through</h2>
         <span className="shrink-0 font-mono text-xs text-chalk/40">
-          {turnsLeft} question{turnsLeft === 1 ? "" : "s"} left
+          {turnsLeft} of {MAX_TURNS} left this week
         </span>
       </div>
       <p className="mb-5 text-sm leading-relaxed text-chalk/55">
@@ -234,8 +236,8 @@ function ChatThread({
 
       {capped ? (
         <p className="rounded-xl border border-dashed border-chalk/15 px-4 py-4 text-center text-sm text-chalk/45">
-          That&apos;s {MAX_TURNS} questions for this review. Run a fresh analysis to start
-          a new conversation.
+          That&apos;s your {MAX_TURNS} questions for this week. Your allowance resets
+          on Monday.
         </p>
       ) : (
         <form
