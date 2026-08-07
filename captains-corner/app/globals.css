@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #143d27 0%, transparent 60%),
+    #04110a;
+  min-height: 100vh;
+}
+
+@keyframes shimmer {
+  0% { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #12291d 0%, #1d4030 50%, #12291d 100%);
+  background-size: 600px 100%;
+  animation: shimmer 1.6s infinite linear;
+}
