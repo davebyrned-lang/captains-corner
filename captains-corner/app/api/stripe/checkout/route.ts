@@ -1,25 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { getProfile } from "@/lib/user";
-import {
-  stripeClient,
-  stripeConfigured,
-  PRICE_CLASSIC,
-  PRICE_PREMIER,
-  PRICE_UPGRADE,
-  TRIAL_DAYS,
-  siteUrl,
-} from "@/lib/stripe";
+import { stripeClient, stripeConfigured, PRICES, TRIAL_DAYS, siteUrl } from "@/lib/stripe";
+import type { Period, TierId } from "@/lib/tiers";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   if (!stripeConfigured()) {
-    return NextResponse.json(
-      { error: "Payments are not switched on yet." },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: "Payments are not switched on yet." }, { status: 503 });
   }
 
   const profile = await getProfile();
@@ -27,10 +17,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
   }
 
-  let tier: string;
+  let tier: TierId;
+  let period: Period;
   try {
     const body = await req.json();
-    tier = String(body.tier ?? "");
+    tier = String(body.tier ?? "") as TierId;
+    period = (String(body.period ?? "monthly") === "annual" ? "annual" : "monthly") as Period;
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
@@ -40,72 +32,50 @@ export async function POST(req: NextRequest) {
   }
 
   const stripe = stripeClient()!;
-  const user = await currentUser();
-  const email = user?.emailAddresses?.[0]?.emailAddress;
 
   /**
-   * Someone on Classic who has actually been charged pays only the difference.
-   * Someone still inside their free month has paid nothing yet, so they pay the
-   * full Premier price. Telling those two apart matters: getting it wrong means
-   * either overcharging a customer or giving the product away.
+   * Someone who already subscribes is switching plans, not buying a new one.
+   * Stripe's billing portal handles that with correct proration, so send them
+   * there rather than creating a second subscription they would be billed for.
    */
-  let premierPrice = PRICE_PREMIER;
-  let upgrading = false;
-
-  if (tier === "premium" && profile.plan === "classic" && profile.stripeCustomerId) {
+  if (profile.plan !== "free" && profile.stripeCustomerId) {
     try {
-      const subs = await stripe.subscriptions.list({
+      const session = await stripe.billingPortal.sessions.create({
         customer: profile.stripeCustomerId,
-        status: "all",
-        limit: 20,
+        return_url: siteUrl(),
       });
-      const hasPaid = subs.data.some((s) => s.status === "active");
-      if (hasPaid && PRICE_UPGRADE) {
-        premierPrice = PRICE_UPGRADE;
-        upgrading = true;
-      }
+      return NextResponse.json({ url: session.url, switching: true });
     } catch (e) {
-      // If we cannot tell, charge full price rather than risk undercharging.
-      console.warn("Could not check subscription status:", e instanceof Error ? e.message : e);
+      console.warn("Portal switch failed, falling through to checkout:", e);
     }
   }
 
+  const price = PRICES[tier][period];
+  if (!price) {
+    return NextResponse.json({ error: "That plan is not available yet." }, { status: 503 });
+  }
+
+  const user = await currentUser();
+  const email = user?.emailAddresses?.[0]?.emailAddress;
+
   try {
-    const session = await stripe.checkout.sessions.create(
-      tier === "classic"
-        ? {
-            // Subscription purely so Stripe can run the free trial for us.
-            // The webhook schedules it to cancel at the end of the season.
-            mode: "subscription",
-            line_items: [{ price: PRICE_CLASSIC, quantity: 1 }],
-            subscription_data: {
-              trial_period_days: TRIAL_DAYS,
-              metadata: { clerkUserId: profile.userId, tier: "classic" },
-            },
-            client_reference_id: profile.userId,
-            customer_email: profile.stripeCustomerId ? undefined : email,
-            customer: profile.stripeCustomerId ?? undefined,
-            metadata: { clerkUserId: profile.userId, tier: "classic" },
-            success_url: `${siteUrl()}/?upgraded=classic`,
-            cancel_url: `${siteUrl()}/?cancelled=1`,
-            allow_promotion_codes: true,
-          }
-        : {
-            mode: "payment",
-            line_items: [{ price: premierPrice, quantity: 1 }],
-            client_reference_id: profile.userId,
-            customer_email: profile.stripeCustomerId ? undefined : email,
-            customer: profile.stripeCustomerId ?? undefined,
-            metadata: {
-              clerkUserId: profile.userId,
-              tier: "premium",
-              upgrade: upgrading ? "1" : "0",
-            },
-            success_url: `${siteUrl()}/?upgraded=premier`,
-            cancel_url: `${siteUrl()}/?cancelled=1`,
-            allow_promotion_codes: true,
-          }
-    );
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      line_items: [{ price, quantity: 1 }],
+      // The free first month is a monthly-plan promise. Annual is discounted
+      // instead, so it charges straight away.
+      subscription_data: {
+        ...(period === "monthly" ? { trial_period_days: TRIAL_DAYS } : {}),
+        metadata: { clerkUserId: profile.userId, tier, period },
+      },
+      client_reference_id: profile.userId,
+      customer: profile.stripeCustomerId ?? undefined,
+      customer_email: profile.stripeCustomerId ? undefined : email,
+      metadata: { clerkUserId: profile.userId, tier, period },
+      success_url: `${siteUrl()}/?upgraded=${tier}`,
+      cancel_url: `${siteUrl()}/?cancelled=1`,
+      allow_promotion_codes: true,
+    });
 
     return NextResponse.json({ url: session.url });
   } catch (e) {
