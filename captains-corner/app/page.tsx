@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
+
 import Loading from "@/components/Loading";
 import ReviewDisplay, { type Meta } from "@/components/ReviewDisplay";
 import Chat from "@/components/Chat";
 import Header from "@/components/Header";
-import { BRAND } from "@/lib/brand";
+import { useUser } from "@clerk/nextjs";
+import Landing from "@/components/Landing";
+
 import type { Review } from "@/lib/types";
 
 interface Matched {
@@ -25,7 +27,8 @@ export default function Home() {
   const [mode, setMode] = useState<Mode>("id");
   const [teamId, setTeamId] = useState("");
   const [plan, setPlan] = useState<string>("free");
-  const [signedIn, setSignedIn] = useState(false);
+  const { isSignedIn, isLoaded } = useUser();
+  const signedIn = Boolean(isSignedIn);
   const [savedTeamId, setSavedTeamId] = useState<string | null>(null);
 
   // Pull the saved team ID so a returning manager never types it twice.
@@ -35,7 +38,6 @@ export default function Home() {
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
-        setSignedIn(Boolean(d.signedIn));
         setPlan(d.plan ?? "free");
         if (d.teamId) {
           setSavedTeamId(d.teamId);
@@ -139,21 +141,15 @@ export default function Home() {
     <main className="mx-auto max-w-3xl px-5 py-8 sm:py-12">
       <Header plan={plan} />
 
-      {!result && (
+      {!result && isLoaded && signedIn && (
         <div className="mb-9 text-center">
-          <Image
-            src="/logo.png"
-            alt={BRAND.name}
-            width={190}
-            height={190}
-            priority
-            className="mx-auto mb-2 h-auto w-[150px] sm:w-[190px]"
-          />
-          <h1 className="mx-auto mt-3 max-w-xl text-3xl font-bold leading-tight text-chalk sm:text-4xl">
-            {BRAND.headline}
+
+          <h1 className="text-2xl font-bold leading-tight text-chalk">
+            Let&apos;s look at your squad
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-chalk/60">
-            {BRAND.subhead}
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-chalk/55">
+            Enter your team ID, or upload a screenshot if FPL has not published your
+            squad yet.
           </p>
           {savedTeamId && (
             <p className="mt-3 text-xs text-teal">
@@ -163,8 +159,11 @@ export default function Home() {
         </div>
       )}
 
+      {/* Signed out: no squad entry until they have an account to attach it to. */}
+      {!result && isLoaded && !signedIn && <Landing />}
+
       {/* Mode switch */}
-      {!result && (
+      {!result && isLoaded && signedIn && (
         <div className="mb-5 flex gap-1 rounded-xl border border-chalk/10 bg-ink/40 p-1">
           {([
             ["id", "Enter team ID"],
@@ -187,7 +186,7 @@ export default function Home() {
       )}
 
       {/* Team ID mode */}
-      {!result && mode === "id" && (
+      {!result && signedIn && mode === "id" && (
         <form onSubmit={analyse} className="mb-8">
           <div className="flex flex-col gap-3 sm:flex-row">
             <input
@@ -217,7 +216,7 @@ export default function Home() {
       )}
 
       {/* Upload mode */}
-      {!result && mode === "upload" && (
+      {!result && signedIn && mode === "upload" && (
         <div className="mb-8">
           <label className="block cursor-pointer rounded-xl border border-dashed border-mint/30 bg-ink/40 px-5 py-8 text-center transition hover:border-mint/60 hover:bg-ink/60">
             <input
@@ -341,20 +340,6 @@ export default function Home() {
         </>
       )}
 
-      {!result && !busy && !error && (
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            ["Minutes first", "A player on the bench scores nothing. Expected minutes outrank everything else."],
-            ["Four weeks out", "Fixture swings are read five gameweeks ahead, not one."],
-            ["Rival-aware", "Advice changes depending on whether you are chasing or protecting a lead."],
-          ].map(([t, d]) => (
-            <div key={t} className="rounded-xl border border-chalk/10 bg-slate1/40 p-4">
-              <p className="text-sm font-semibold text-mint">{t}</p>
-              <p className="mt-1.5 text-xs leading-relaxed text-chalk/60">{d}</p>
-            </div>
-          ))}
-        </div>
-      )}
     </main>
   );
 }
