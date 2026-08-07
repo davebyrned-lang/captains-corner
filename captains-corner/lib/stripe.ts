@@ -10,14 +10,20 @@ import Stripe from "stripe";
  * one-off payment.
  */
 
-export const PRICE_CLASSIC = process.env.STRIPE_PRICE_CLASSIC ?? "";
-export const PRICE_PREMIER = process.env.STRIPE_PRICE_PREMIER ?? "";
 /**
- * The difference between the two tiers, for someone who has already paid for
- * Classic. Charging the full $25 on top of their $10 would mean $35 for a $25
- * product, which is how you generate refund requests instead of upgrades.
+ * Four prices: each tier billed monthly or annually. Monthly carries the free
+ * first month; annual is discounted instead, so it charges straight away.
  */
-export const PRICE_UPGRADE = process.env.STRIPE_PRICE_UPGRADE ?? "";
+export const PRICES = {
+  classic: {
+    monthly: process.env.STRIPE_PRICE_CLASSIC_MONTHLY ?? "",
+    annual: process.env.STRIPE_PRICE_CLASSIC_ANNUAL ?? "",
+  },
+  premium: {
+    monthly: process.env.STRIPE_PRICE_PREMIER_MONTHLY ?? "",
+    annual: process.env.STRIPE_PRICE_PREMIER_ANNUAL ?? "",
+  },
+} as const;
 
 export const TRIAL_DAYS = Math.max(
   0,
@@ -31,13 +37,13 @@ export function stripeClient(): Stripe | null {
 }
 
 export const stripeConfigured = () =>
-  Boolean(process.env.STRIPE_SECRET_KEY && PRICE_CLASSIC && PRICE_PREMIER);
-
-/** Unix seconds for the end of this season, used to stop the pass renewing. */
-export function seasonEndUnix(now = new Date()): number {
-  const year = now.getUTCMonth() >= 5 ? now.getUTCFullYear() + 1 : now.getUTCFullYear();
-  return Math.floor(Date.UTC(year, 4, 31, 23, 59, 59) / 1000);
-}
+  Boolean(
+    process.env.STRIPE_SECRET_KEY &&
+      PRICES.classic.monthly &&
+      PRICES.classic.annual &&
+      PRICES.premium.monthly &&
+      PRICES.premium.annual
+  );
 
 export function siteUrl(): string {
   return (
