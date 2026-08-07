@@ -5,6 +5,9 @@
 
 export type TierId = "free" | "classic" | "premium";
 
+/** How long the Classic trial runs before the card on file is charged. */
+export const TRIAL_DAYS = 30;
+
 export interface Tier {
   id: TierId;
   name: string;
@@ -17,32 +20,10 @@ export interface Tier {
   locked: string[];
   cta: string;
   highlight?: boolean;
+  trialDays?: number;
 }
 
 export const TIERS: Tier[] = [
-  {
-    id: "free",
-    name: "Free",
-    price: "£0",
-    cadence: "forever",
-    pitch: "Enough to see whether the advice is any good.",
-    reviewsPerWeek: 1,
-    chatQuestionsPerWeek: 0,
-    features: [
-      "One full squad review a week",
-      "Executive summary and squad health",
-      "Transfer recommendations with reasoning",
-      "Captain, vice captain and starting XI",
-      "Works from a team ID or a screenshot",
-    ],
-    locked: [
-      "Chat with the assistant",
-      "Four gameweek roadmap",
-      "Double and blank gameweek planning",
-      "Live injury and press conference watch",
-    ],
-    cta: "Start free",
-  },
   {
     id: "classic",
     name: "Classic",
@@ -52,11 +33,12 @@ export const TIERS: Tier[] = [
     reviewsPerWeek: 3,
     chatQuestionsPerWeek: 0,
     features: [
-      "Three reviews a week, so you can re-run after team news",
-      "Everything in Free",
+      "Three full squad reviews a week",
+      "Transfer recommendations with the reasoning behind them",
+      "Captain, vice captain and starting XI",
       "Mini-league rival analysis: who to cover, who to attack",
-      "Chip strategy with timing reasoning",
-      "Season pass, no recurring charge",
+      "Chip strategy with timing",
+      "Works from a team ID or a screenshot",
     ],
     locked: [
       "Chat with the assistant",
@@ -64,7 +46,8 @@ export const TIERS: Tier[] = [
       "Double and blank gameweek planning",
       "Live injury and press conference watch",
     ],
-    cta: "Get Classic",
+    cta: "Start free month",
+    trialDays: 30,
   },
   {
     id: "premium",
