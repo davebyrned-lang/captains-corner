@@ -15,6 +15,8 @@ export interface Profile {
   plan: Plan;
   teamId: string | null;
   expiresAt: string | null;
+  /** Stripe customer, so we can send them to the billing portal. */
+  stripeCustomerId: string | null;
   /**
    * Player IDs from the last squad read off a screenshot. We store IDs rather
    * than names and prices so that when we show it back, the prices, injuries
@@ -29,6 +31,7 @@ export const ANON: Profile = {
   plan: "free",
   teamId: null,
   expiresAt: null,
+  stripeCustomerId: null,
   squad: [],
 };
 
@@ -62,6 +65,8 @@ export async function getProfile(): Promise<Profile> {
       plan,
       teamId: typeof md.fplTeamId === "string" ? md.fplTeamId : null,
       expiresAt,
+      stripeCustomerId:
+        typeof md.stripeCustomerId === "string" ? md.stripeCustomerId : null,
       squad,
     };
   } catch {
@@ -92,12 +97,18 @@ export async function saveSquad(userId: string, playerIds: number[]): Promise<vo
 export async function setPlan(
   userId: string,
   plan: Plan,
-  expiresAt: string
+  expiresAt: string,
+  stripeCustomerId?: string
 ): Promise<void> {
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
   await client.users.updateUser(userId, {
-    privateMetadata: { ...(user.privateMetadata ?? {}), plan, expiresAt },
+    privateMetadata: {
+      ...(user.privateMetadata ?? {}),
+      plan,
+      expiresAt,
+      ...(stripeCustomerId ? { stripeCustomerId } : {}),
+    },
   });
 }
 

@@ -97,3 +97,49 @@ export async function isSubscriber(_identifier: string): Promise<boolean> {
   if (process.env.PAYWALL_ENABLED !== "true") return false;
   return false;
 }
+
+
+/** ISO-ish week key, so limits reset on Monday rather than a rolling window. */
+function weekKey(d = new Date()): string {
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${t.getUTCFullYear()}W${week}`;
+}
+
+/**
+ * Weekly allowance, used for reviews and chat questions.
+ * Same storage story as the daily limiter: Upstash if configured, memory if not.
+ */
+export async function checkWeekly(
+  bucket: string,
+  identifier: string,
+  limit: number
+): Promise<RateResult> {
+  const key = `cc:wk:${bucket}:${identifier}:${weekKey()}`;
+
+  const incr = await upstash(["INCR", key]);
+  if (incr && typeof incr.result === "number") {
+    if (incr.result === 1) await upstash(["EXPIRE", key, 60 * 60 * 24 * 8]);
+    return {
+      allowed: incr.result <= limit,
+      remaining: Math.max(0, limit - incr.result),
+      limit,
+    };
+  }
+
+  const now = Date.now();
+  const entry = memory.get(key);
+  if (!entry || entry.resetAt < now) {
+    memory.set(key, { count: 1, resetAt: now + 8 * DAY_MS });
+    return { allowed: true, remaining: limit - 1, limit };
+  }
+  entry.count += 1;
+  return {
+    allowed: entry.count <= limit,
+    remaining: Math.max(0, limit - entry.count),
+    limit,
+  };
+}
