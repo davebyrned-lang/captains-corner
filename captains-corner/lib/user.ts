@@ -1,6 +1,6 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 
-export type Plan = "free" | "basic" | "premium";
+export type Plan = "free" | "classic" | "premium";
 
 /**
  * Everything we know about the person making the request.
@@ -75,7 +75,7 @@ export async function setPlan(
   });
 }
 
-export const isPaid = (p: Plan) => p === "basic" || p === "premium";
+export const isPaid = (p: Plan) => p === "classic" || p === "premium";
 export const isPremium = (p: Plan) => p === "premium";
 
 /** The season ends in late May. Anything bought now runs to the end of it. */
