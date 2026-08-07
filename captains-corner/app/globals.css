@@ -8,8 +8,9 @@
 
 body {
   background:
-    radial-gradient(1200px 600px at 50% -10%, #143d27 0%, transparent 60%),
-    #04110a;
+    radial-gradient(900px 500px at 50% -8%, rgba(32, 166, 133, 0.18) 0%, transparent 62%),
+    radial-gradient(700px 420px at 85% 8%, rgba(197, 230, 89, 0.08) 0%, transparent 60%),
+    #010413;
   min-height: 100vh;
 }
 
@@ -19,7 +20,7 @@ body {
 }
 
 .shimmer {
-  background: linear-gradient(90deg, #12291d 0%, #1d4030 50%, #12291d 100%);
+  background: linear-gradient(90deg, #0C1730 0%, #14305a 50%, #0C1730 100%);
   background-size: 600px 100%;
   animation: shimmer 1.6s infinite linear;
 }

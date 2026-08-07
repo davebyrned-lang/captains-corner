@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Loading from "@/components/Loading";
 import ReviewDisplay, { type Meta } from "@/components/ReviewDisplay";
 import Chat from "@/components/Chat";
+import Header from "@/components/Header";
 import { BRAND } from "@/lib/brand";
 import type { Review } from "@/lib/types";
 
@@ -22,6 +24,29 @@ type Mode = "id" | "upload";
 export default function Home() {
   const [mode, setMode] = useState<Mode>("id");
   const [teamId, setTeamId] = useState("");
+  const [plan, setPlan] = useState<string>("free");
+  const [signedIn, setSignedIn] = useState(false);
+  const [savedTeamId, setSavedTeamId] = useState<string | null>(null);
+
+  // Pull the saved team ID so a returning manager never types it twice.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/profile")
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        setSignedIn(Boolean(d.signedIn));
+        setPlan(d.plan ?? "free");
+        if (d.teamId) {
+          setSavedTeamId(d.teamId);
+          setTeamId((cur) => cur || d.teamId);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [extracting, setExtracting] = useState(false);
   const [matched, setMatched] = useState<Matched[] | null>(null);
@@ -75,6 +100,16 @@ export default function Home() {
     setResult(null);
     setLoading(true);
 
+    if (signedIn && teamId.trim() && teamId.trim() !== savedTeamId) {
+      fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId: teamId.trim() }),
+      })
+        .then(() => setSavedTeamId(teamId.trim()))
+        .catch(() => {});
+    }
+
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
@@ -101,19 +136,31 @@ export default function Home() {
   const busy = loading || extracting;
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-10 sm:py-16">
+    <main className="mx-auto max-w-3xl px-5 py-8 sm:py-12">
+      <Header plan={plan} />
+
       {!result && (
-        <header className="mb-9 text-center">
-          <p className="text-xs uppercase tracking-[0.25em] text-mint">
-            {BRAND.name}
-          </p>
+        <div className="mb-9 text-center">
+          <Image
+            src="/logo.png"
+            alt={BRAND.name}
+            width={190}
+            height={190}
+            priority
+            className="mx-auto mb-2 h-auto w-[150px] sm:w-[190px]"
+          />
           <h1 className="mx-auto mt-3 max-w-xl text-3xl font-bold leading-tight text-chalk sm:text-4xl">
             {BRAND.headline}
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-chalk/60">
             {BRAND.subhead}
           </p>
-        </header>
+          {savedTeamId && (
+            <p className="mt-3 text-xs text-teal">
+              Welcome back. We remembered team {savedTeamId}.
+            </p>
+          )}
+        </div>
       )}
 
       {/* Mode switch */}
