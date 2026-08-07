@@ -13,6 +13,7 @@ import {
 import { buildContext } from "@/lib/context";
 import { CHAT_SYSTEM_PROMPT, buildUserMessage } from "@/lib/prompt";
 import type { FplEntry } from "@/lib/types";
+import { getProfile } from "@/lib/user";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -45,6 +46,9 @@ function text(body: string, status: number) {
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return text("The site is not configured yet: ANTHROPIC_API_KEY is missing.", 500);
+
+  const profile = await getProfile();
+  if (!profile.signedIn) return text("Please sign in to use the assistant.", 401);
 
   let teamId: number | null = null;
   let playerIds: number[] = [];
