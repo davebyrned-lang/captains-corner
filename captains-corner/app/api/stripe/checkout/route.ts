@@ -19,10 +19,12 @@ export async function POST(req: NextRequest) {
 
   let tier: TierId;
   let period: Period;
+  let promoCode = "";
   try {
     const body = await req.json();
     tier = String(body.tier ?? "") as TierId;
     period = (String(body.period ?? "monthly") === "annual" ? "annual" : "monthly") as Period;
+    promoCode = String(body.promoCode ?? "").trim().slice(0, 60);
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
@@ -58,6 +60,34 @@ export async function POST(req: NextRequest) {
   const user = await currentUser();
   const email = user?.emailAddresses?.[0]?.emailAddress;
 
+  /**
+   * A code typed on our site is validated against Stripe before checkout, so a
+   * wrong code gives a clear message here rather than confusing someone on the
+   * payment page. Stripe still enforces its own limits and expiry.
+   */
+  let discountId: string | null = null;
+  if (promoCode) {
+    try {
+      const found = await stripe.promotionCodes.list({
+        code: promoCode,
+        active: true,
+        limit: 1,
+      });
+      if (!found.data.length) {
+        return NextResponse.json(
+          { error: "That code is not valid, or it has expired." },
+          { status: 400 }
+        );
+      }
+      discountId = found.data[0].id;
+    } catch {
+      return NextResponse.json(
+        { error: "Could not check that code. Try again." },
+        { status: 502 }
+      );
+    }
+  }
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -74,7 +104,11 @@ export async function POST(req: NextRequest) {
       metadata: { clerkUserId: profile.userId, tier, period },
       success_url: `${siteUrl()}/?upgraded=${tier}`,
       cancel_url: `${siteUrl()}/?cancelled=1`,
-      allow_promotion_codes: true,
+      // Stripe rejects a request that both applies a discount and offers the
+      // promo box, so pick one depending on whether a code was entered.
+      ...(discountId
+        ? { discounts: [{ promotion_code: discountId }] }
+        : { allow_promotion_codes: true }),
     });
 
     return NextResponse.json({ url: session.url });
