@@ -1,9 +1,41 @@
 "use client";
 
+import { useState } from "react";
 import { SignUpButton } from "@clerk/nextjs";
 import { TIERS, TRIAL_DAYS } from "@/lib/tiers";
 
-export default function Pricing({ signedIn }: { signedIn: boolean }) {
+export default function Pricing({
+  signedIn,
+  currentPlan = "free",
+}: {
+  signedIn: boolean;
+  currentPlan?: string;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function checkout(tier: string) {
+    setBusy(tier);
+    setError(null);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setError(data.error ?? "Could not start checkout.");
+    } catch {
+      setError("Could not reach the payment page. Try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <section id="pricing" className="mt-14">
       <h2 className="text-center text-2xl font-bold text-chalk">
@@ -58,18 +90,7 @@ export default function Pricing({ signedIn }: { signedIn: boolean }) {
             </ul>
 
             <div className="mt-6">
-              {signedIn ? (
-                <button
-                  disabled={t.id !== "free"}
-                  className={`w-full rounded-xl px-5 py-3 text-sm font-semibold transition ${
-                    t.id === "free"
-                      ? "border border-chalk/20 text-chalk/70"
-                      : "bg-mint text-ink hover:bg-mint/85 disabled:cursor-not-allowed disabled:opacity-50"
-                  }`}
-                >
-                  {t.id === "free" ? "Your current plan" : "Coming soon"}
-                </button>
-              ) : (
+              {!signedIn ? (
                 <SignUpButton mode="modal">
                   <button
                     className={`w-full rounded-xl px-5 py-3 text-sm font-semibold transition ${
@@ -81,21 +102,43 @@ export default function Pricing({ signedIn }: { signedIn: boolean }) {
                     {t.cta}
                   </button>
                 </SignUpButton>
+              ) : currentPlan === t.id ? (
+                <button
+                  disabled
+                  className="w-full cursor-default rounded-xl border border-mint/40 px-5 py-3 text-sm font-semibold text-mint"
+                >
+                  Your current plan
+                </button>
+              ) : (
+                <button
+                  onClick={() => checkout(t.id)}
+                  disabled={busy !== null}
+                  className={`w-full rounded-xl px-5 py-3 text-sm font-semibold transition disabled:opacity-50 ${
+                    t.highlight
+                      ? "bg-mint text-ink hover:bg-mint/85"
+                      : "border border-chalk/20 text-chalk hover:border-mint/40"
+                  }`}
+                >
+                  {busy === t.id ? "Opening checkout…" : t.cta}
+                </button>
               )}
             </div>
           </div>
         ))}
       </div>
 
+      {error && (
+        <p className="mx-auto mt-4 max-w-lg rounded-xl border border-red-400/30 bg-red-400/8 px-4 py-3 text-center text-sm text-red-200">
+          {error}
+        </p>
+      )}
+
       <p className="mx-auto mt-5 max-w-lg text-center text-xs leading-relaxed text-chalk/40">
         Classic starts with {TRIAL_DAYS} days free. We take a card at sign-up and
         charge $10 when the free period ends, unless you cancel before then. We
         will email you three days beforehand either way.
       </p>
-      <p className="mt-3 text-center text-xs text-chalk/30">
-        Payments are not switched on yet. Create an account now and you will be
-        first in when they are.
-      </p>
+
     </section>
   );
 }

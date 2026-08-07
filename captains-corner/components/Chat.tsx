@@ -63,6 +63,37 @@ function inline(s: string) {
 export default function Chat({
   teamId,
   playerIds,
+  plan = "free",
+}: {
+  teamId?: string;
+  playerIds?: number[];
+  plan?: string;
+}) {
+  if (plan !== "premium") {
+    return (
+      <section className="mt-6 rounded-2xl border border-dashed border-mint/25 bg-slate1/40 p-7 text-center">
+        <h2 className="text-lg font-semibold text-chalk">Talk it through</h2>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-chalk/55">
+          Premier lets you ask follow-up questions with your squad, fixtures and
+          mini-league already loaded. Compare two players, sanity-check a hit, or
+          plan your wildcard.
+        </p>
+        <a
+          href="#pricing"
+          className="mt-5 inline-block rounded-xl bg-mint px-6 py-3 text-sm font-semibold text-ink transition hover:bg-mint/85"
+        >
+          See Premier
+        </a>
+      </section>
+    );
+  }
+
+  return <ChatThread teamId={teamId} playerIds={playerIds} />;
+}
+
+function ChatThread({
+  teamId,
+  playerIds,
 }: {
   teamId?: string;
   playerIds?: number[];

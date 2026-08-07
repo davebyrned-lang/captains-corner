@@ -1,10 +1,27 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { BRAND } from "@/lib/brand";
 
 export default function Header({ plan }: { plan?: string }) {
+  const [opening, setOpening] = useState(false);
+
+  async function openBilling() {
+    setOpening(true);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.url) window.location.href = data.url;
+      else alert(data.error ?? "Could not open billing.");
+    } catch {
+      alert("Could not reach the billing page.");
+    } finally {
+      setOpening(false);
+    }
+  }
+
   const label =
     plan === "premium" ? "Premier" : plan === "classic" ? "Classic" : null;
 
@@ -37,6 +54,15 @@ export default function Header({ plan }: { plan?: string }) {
       )}
 
       <div className="ml-auto flex items-center gap-2">
+        {label && (
+          <button
+            onClick={openBilling}
+            disabled={opening}
+            className="rounded-lg px-3 py-2 text-xs text-chalk/50 transition hover:text-chalk disabled:opacity-50"
+          >
+            {opening ? "Opening…" : "Billing"}
+          </button>
+        )}
         <SignedOut>
           <SignInButton mode="modal">
             <button className="rounded-lg px-3 py-2 text-sm text-chalk/70 transition hover:text-chalk">
