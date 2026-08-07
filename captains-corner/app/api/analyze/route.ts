@@ -139,20 +139,39 @@ export async function POST(req: NextRequest) {
     const detail = e instanceof Error ? e.message : "Unknown error";
     console.error("Analysis failed:", detail);
 
-    if (detail.includes("401") || detail.toLowerCase().includes("authentication")) {
+    if (/credit balance|insufficient|billing/i.test(detail)) {
       return NextResponse.json(
-        { error: "The Anthropic API key is missing or invalid. Check it in your Vercel settings." },
+        {
+          error:
+            "The Anthropic account behind this site has run out of credit. If this is your site, top it up at console.anthropic.com under Billing.",
+          detail,
+        },
+        { status: 402 }
+      );
+    }
+    if (/authentication|invalid x-api-key|401/i.test(detail)) {
+      return NextResponse.json(
+        { error: "The Anthropic API key is missing or invalid. Check it in your Vercel settings.", detail },
         { status: 500 }
       );
     }
-    if (detail.includes("429") || detail.toLowerCase().includes("rate")) {
+    if (/not_found_error|model/i.test(detail)) {
       return NextResponse.json(
-        { error: "Anthropic is rate limiting us. Wait a moment and try again." },
+        {
+          error: `The model "${process.env.ANTHROPIC_MODEL || "claude-sonnet-5"}" was rejected by Anthropic. Set ANTHROPIC_MODEL in Vercel to a model your account can use.`,
+          detail,
+        },
+        { status: 500 }
+      );
+    }
+    if (/429|rate/i.test(detail)) {
+      return NextResponse.json(
+        { error: "Anthropic is rate limiting us. Wait a moment and try again.", detail },
         { status: 429 }
       );
     }
     return NextResponse.json(
-      { error: "Something went wrong generating the review. Please try again." },
+      { error: "Something went wrong generating the review. Please try again.", detail },
       { status: 500 }
     );
   }

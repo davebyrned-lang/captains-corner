@@ -9,6 +9,7 @@ export default function Home() {
   const [teamId, setTeamId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<string | null>(null);
   const [result, setResult] = useState<{ review: Review; meta: Meta } | null>(null);
 
   async function analyse(e: React.FormEvent) {
@@ -17,6 +18,7 @@ export default function Home() {
 
     setLoading(true);
     setError(null);
+    setDetail(null);
     setResult(null);
 
     try {
@@ -28,6 +30,7 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
+        setDetail(data.detail ?? null);
       } else {
         setResult(data);
       }
@@ -89,6 +92,16 @@ export default function Home() {
       {error && (
         <div className="mb-8 rounded-xl border border-red-400/30 bg-red-400/8 p-4 text-sm leading-relaxed text-red-200">
           {error}
+          {detail && (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-xs text-red-300/70 hover:text-red-200">
+                Technical detail
+              </summary>
+              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg bg-ink/60 p-3 text-[11px] leading-relaxed text-red-100/70">
+                {detail}
+              </pre>
+            </details>
+          )}
         </div>
       )}
 
