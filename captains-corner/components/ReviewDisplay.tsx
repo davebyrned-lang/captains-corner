@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Review } from "@/lib/types";
 import { BRAND } from "@/lib/brand";
 
@@ -38,20 +39,33 @@ function Section({
   n,
   title,
   children,
+  defaultOpen = false,
 }: {
   n: string;
   title: string;
   children: React.ReactNode;
+  defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="rounded-2xl border border-mint/15 bg-slate1/50 p-6">
-      <h2 className="mb-4 flex items-center gap-3 text-lg font-semibold text-chalk">
+    <section className="overflow-hidden rounded-2xl border border-mint/15 bg-slate1/50">
+      <button
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-6 py-5 text-left transition hover:bg-mint/5"
+      >
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-mint/15 text-xs font-bold text-mint">
           {n}
         </span>
-        {title}
-      </h2>
-      {children}
+        <h2 className="flex-1 text-lg font-semibold text-chalk">{title}</h2>
+        <span
+          className={`shrink-0 text-chalk/40 transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden
+        >
+          ▾
+        </span>
+      </button>
+      {open && <div className="px-6 pb-6">{children}</div>}
     </section>
   );
 }
@@ -101,7 +115,7 @@ export default function ReviewDisplay({ review, meta }: { review: Review; meta: 
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {/* Header */}
       <div className="rounded-2xl border border-mint/25 bg-gradient-to-br from-slate1 to-pitch p-6">
         <p className="text-xs uppercase tracking-widest text-mint">{meta.gameweekLabel} review</p>
@@ -142,7 +156,7 @@ export default function ReviewDisplay({ review, meta }: { review: Review; meta: 
       )}
 
       {/* 1. Executive summary */}
-      <Section n="1" title="Executive summary">
+      <Section n="1" title="Executive summary" defaultOpen>
         <div className="mb-5 grid gap-4 sm:grid-cols-2">
           <Score value={s.squad_health} label="Squad health" />
           <Score value={s.confidence} label="Confidence in this advice" />
@@ -188,7 +202,7 @@ export default function ReviewDisplay({ review, meta }: { review: Review; meta: 
       </Section>
 
       {/* 3. Transfers */}
-      <Section n="3" title="Transfer recommendations">
+      <Section n="3" title="Transfer recommendations" defaultOpen>
         {review.transfers.length === 0 && (
           <Empty>
             No transfer recommended. Either the squad is in good shape, or there is
@@ -254,7 +268,7 @@ export default function ReviewDisplay({ review, meta }: { review: Review; meta: 
       </Section>
 
       {/* 5. Captaincy */}
-      <Section n="5" title="Captaincy">
+      <Section n="5" title="Captaincy" defaultOpen>
         <div className="grid gap-3 sm:grid-cols-3">
           {[
             ["Best pick", review.captaincy.best, "border-mint/40 bg-mint/8"],
