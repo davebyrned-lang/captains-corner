@@ -1,7 +1,7 @@
 "use client";
 
 import { SignUpButton } from "@clerk/nextjs";
-import { TIERS } from "@/lib/tiers";
+import { TIERS, TRIAL_DAYS } from "@/lib/tiers";
 
 export default function Pricing({ signedIn }: { signedIn: boolean }) {
   return (
@@ -10,11 +10,11 @@ export default function Pricing({ signedIn }: { signedIn: boolean }) {
         One price for the whole season
       </h2>
       <p className="mx-auto mt-2 max-w-lg text-center text-sm leading-relaxed text-chalk/55">
-        Pay once, not every month. Access runs to the end of the season in May.
-        No auto-renewal, nothing to cancel.
+        Pay once, not every month. Access runs to the end of the season in May,
+        then stops. Nothing renews on you next August.
       </p>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
+      <div className="mx-auto mt-8 grid max-w-2xl gap-4 md:grid-cols-2">
         {TIERS.map((t) => (
           <div
             key={t.id}
@@ -35,6 +35,11 @@ export default function Pricing({ signedIn }: { signedIn: boolean }) {
               <span className="text-3xl font-bold text-mint">{t.price}</span>
               <span className="text-xs text-chalk/45">{t.cadence}</span>
             </div>
+            {t.trialDays && (
+              <p className="mt-2 inline-block rounded-md bg-teal/15 px-2.5 py-1 text-xs font-semibold text-teal">
+                First {t.trialDays} days free
+              </p>
+            )}
             <p className="mt-2 text-xs leading-relaxed text-chalk/55">{t.pitch}</p>
 
             <ul className="mt-5 flex-1 space-y-2.5">
@@ -82,8 +87,14 @@ export default function Pricing({ signedIn }: { signedIn: boolean }) {
         ))}
       </div>
 
-      <p className="mt-5 text-center text-xs text-chalk/35">
-        Paid plans are not live yet. Sign up free now and you will be first to know.
+      <p className="mx-auto mt-5 max-w-lg text-center text-xs leading-relaxed text-chalk/40">
+        Classic starts with {TRIAL_DAYS} days free. We take a card at sign-up and
+        charge $10 when the free period ends, unless you cancel before then. We
+        will email you three days beforehand either way.
+      </p>
+      <p className="mt-3 text-center text-xs text-chalk/30">
+        Payments are not switched on yet. Create an account now and you will be
+        first in when they are.
       </p>
     </section>
   );

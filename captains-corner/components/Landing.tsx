@@ -64,7 +64,7 @@ export default function Landing() {
         <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
           <SignUpButton mode="modal">
             <button className="rounded-xl bg-mint px-8 py-3.5 font-semibold text-ink transition hover:bg-mint/85">
-              Sign up free
+              Start your free month
             </button>
           </SignUpButton>
           <SignInButton mode="modal">
@@ -74,7 +74,8 @@ export default function Landing() {
           </SignInButton>
         </div>
         <p className="mt-3 text-xs text-chalk/35">
-          Free forever tier. No card needed to start.
+          30 days free, then $10 for the rest of the season. Cancel any time
+          before you are charged.
         </p>
       </section>
 
@@ -127,7 +128,7 @@ export default function Landing() {
         </p>
         <SignUpButton mode="modal">
           <button className="mt-5 rounded-xl bg-mint px-8 py-3.5 font-semibold text-ink transition hover:bg-mint/85">
-            Sign up free
+            Start your free month
           </button>
         </SignUpButton>
       </section>
