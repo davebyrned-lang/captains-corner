@@ -1,21 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { stripeClient, seasonEndUnix } from "@/lib/stripe";
+import { stripeClient } from "@/lib/stripe";
 import { setPlan, seasonEnd, type Plan } from "@/lib/user";
-import { clerkClient } from "@clerk/nextjs/server";
-
-/** Reads a user's current plan without needing a request session. */
-async function getProfile2(userId: string): Promise<string> {
-  try {
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    const md = (user.privateMetadata ?? {}) as Record<string, unknown>;
-    return typeof md.plan === "string" ? md.plan : "free";
-  } catch {
-    return "free";
-  }
-}
-
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
@@ -61,28 +47,10 @@ export async function POST(req: NextRequest) {
           typeof s.customer === "string" ? s.customer : undefined
         );
 
-        // A season pass must not quietly renew next August. Stripe has no
-        // "one billing cycle then stop", so we schedule the cancellation now.
         if (s.mode === "subscription" && typeof s.subscription === "string") {
           await stripe.subscriptions.update(s.subscription, {
-            cancel_at: seasonEndUnix(),
-            metadata: { clerkUserId: userId, tier: "classic" },
+            metadata: { clerkUserId: userId, tier },
           });
-        }
-
-        // Upgrading to Premier mid-trial must not leave the Classic
-        // subscription running, or they get billed $10 on top of the $25.
-        if (tier === "premium" && typeof s.customer === "string") {
-          const subs = await stripe.subscriptions.list({
-            customer: s.customer,
-            status: "all",
-            limit: 20,
-          });
-          for (const sub of subs.data) {
-            if (sub.status === "trialing" || sub.status === "active") {
-              await stripe.subscriptions.cancel(sub.id);
-            }
-          }
         }
         break;
       }
@@ -96,14 +64,21 @@ export async function POST(req: NextRequest) {
         const userId =
           (obj as Stripe.Subscription).metadata?.clerkUserId ??
           (obj as Stripe.Invoice).metadata?.clerkUserId;
+        if (userId) await setPlan(userId, "free", new Date().toISOString());
+        break;
+      }
+
+      // A switch between Classic and Premier happens in the billing portal,
+      // so Stripe is the source of truth for which plan someone is on.
+      case "customer.subscription.updated": {
+        const sub = event.data.object as Stripe.Subscription;
+        const userId = sub.metadata?.clerkUserId;
         if (!userId) break;
 
-        // Only downgrade if they are still on the plan this subscription paid
-        // for. A Premier upgrade cancels the Classic sub on purpose, and that
-        // must not strip the Premier access we just granted.
-        const tierOfSub = (obj as Stripe.Subscription).metadata?.tier ?? "classic";
-        const current = await getProfile2(userId);
-        if (current === tierOfSub) {
+        if (sub.status === "active" || sub.status === "trialing") {
+          const tier = (sub.metadata?.tier ?? "classic") as Plan;
+          await setPlan(userId, tier, seasonEnd());
+        } else if (["canceled", "unpaid", "incomplete_expired"].includes(sub.status)) {
           await setPlan(userId, "free", new Date().toISOString());
         }
         break;
