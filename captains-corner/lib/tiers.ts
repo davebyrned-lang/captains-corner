@@ -29,7 +29,7 @@ export const TIERS: Tier[] = [
   {
     id: "classic",
     name: "Classic",
-    monthly: "$2",
+    monthly: "$2.50",
     annual: "$12.50",
     annualNote: "Just over five months' worth",
     pitch: "For the manager who plans once and gets on with their week.",
