@@ -16,6 +16,7 @@ import { checkRateLimit, isSubscriber } from "@/lib/ratelimit";
 import { normalizeReview } from "@/lib/normalize";
 import { runResearch } from "@/lib/research";
 import type { FplEntry } from "@/lib/types";
+import { getProfile } from "@/lib/user";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -49,6 +50,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Gating the UI is not gating. Anyone can POST here directly, so the real
+  // check lives on the server.
+  const profile = await getProfile();
+  if (!profile.signedIn) {
+    return NextResponse.json(
+      { error: "Please sign in to analyse a squad." },
+      { status: 401 }
+    );
+  }
+
   let teamId: number | null = null;
   let playerIds: number[] = [];
   try {
@@ -74,7 +85,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const id = clientId(req);
+  const id = profile.userId ?? clientId(req);
   if (!(await isSubscriber(id))) {
     const rate = await checkRateLimit(id);
     if (!rate.allowed) {
