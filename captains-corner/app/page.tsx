@@ -43,6 +43,13 @@ export default function Home() {
           setSavedTeamId(d.teamId);
           setTeamId((cur) => cur || d.teamId);
         }
+        if (Array.isArray(d.squadPlayers) && d.squadPlayers.length) {
+          setMatched(d.squadPlayers);
+          setRemembered(true);
+          setReadNote("");
+          // No team ID saved means the screenshot route is their way in.
+          if (!d.teamId) setMode("upload");
+        }
       })
       .catch(() => {});
     return () => {
@@ -54,6 +61,7 @@ export default function Home() {
   const [matched, setMatched] = useState<Matched[] | null>(null);
   const [unmatched, setUnmatched] = useState<string[]>([]);
   const [readNote, setReadNote] = useState("");
+  const [remembered, setRemembered] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(false);
@@ -87,6 +95,7 @@ export default function Home() {
         setMatched(data.matched ?? []);
         setUnmatched(data.unmatched ?? []);
         setReadNote(data.note ?? "");
+        setRemembered(false);
       }
     } catch {
       setError("Could not upload that image. Check your connection and try again.");
@@ -102,14 +111,23 @@ export default function Home() {
     setResult(null);
     setLoading(true);
 
-    if (signedIn && teamId.trim() && teamId.trim() !== savedTeamId) {
-      fetch("/api/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teamId: teamId.trim() }),
-      })
-        .then(() => setSavedTeamId(teamId.trim()))
-        .catch(() => {});
+    // Remember whatever they gave us, so next visit is one click.
+    if (signedIn) {
+      const payload: Record<string, unknown> = {};
+      if (teamId.trim() && teamId.trim() !== savedTeamId) payload.teamId = teamId.trim();
+      if (matched?.length) payload.playerIds = matched.map((m) => m.id);
+
+      if (Object.keys(payload).length) {
+        fetch("/api/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+          .then(() => {
+            if (payload.teamId) setSavedTeamId(teamId.trim());
+          })
+          .catch(() => {});
+      }
     }
 
     try {
@@ -239,9 +257,16 @@ export default function Home() {
           {matched && (
             <div className="mt-5 rounded-xl border border-chalk/10 bg-slate1/50 p-5">
               <p className="text-sm font-semibold text-chalk">
-                Read {matched.length} player{matched.length === 1 ? "" : "s"}. Check this
-                before we analyse it.
+                {remembered
+                  ? `Your saved squad, ${matched.length} player${matched.length === 1 ? "" : "s"}.`
+                  : `Read ${matched.length} player${matched.length === 1 ? "" : "s"}. Check this before we analyse it.`}
               </p>
+              {remembered && (
+                <p className="mt-1.5 text-xs text-teal">
+                  Prices and injury flags are refreshed from FPL, not from the old
+                  image. Upload a new screenshot above to replace it.
+                </p>
+              )}
               {readNote && <p className="mt-1.5 text-xs text-chalk/50">{readNote}</p>}
 
               <div className="mt-4 flex flex-wrap gap-2">
