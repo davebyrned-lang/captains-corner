@@ -6,7 +6,7 @@ import { BRAND } from "@/lib/brand";
 
 export default function Header({ plan }: { plan?: string }) {
   const label =
-    plan === "premium" ? "Premium" : plan === "basic" ? "Basic" : null;
+    plan === "premium" ? "Premier" : plan === "classic" ? "Classic" : null;
 
   return (
     <header className="mb-8 flex items-center gap-3">
@@ -27,7 +27,7 @@ export default function Header({ plan }: { plan?: string }) {
       {label && (
         <span
           className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-            label === "Premium"
+            label === "Premier"
               ? "bg-mint/20 text-mint"
               : "bg-teal/20 text-teal"
           }`}
