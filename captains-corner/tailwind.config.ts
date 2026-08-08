@@ -5,13 +5,13 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Sampled straight from the Assistant Manager logo.
-        ink: "#010413",      // page background, the logo's own backdrop
-        pitch: "#061024",    // raised panels
-        slate1: "#0C1730",   // cards
-        mint: "#C5E659",     // primary accent, the lime in the wordmark
-        teal: "#20A685",     // secondary accent
-        green: "#3FA974",    // tertiary
+        // Sampled straight from the FPL Corner logo.
+        ink: "#000215",      // page background, the logo's own backdrop
+        pitch: "#0A0C24",    // raised panels
+        slate1: "#131634",   // cards, picking up the shield's purple
+        mint: "#BAED48",     // primary accent, the lime in the wordmark
+        teal: "#2BF0E8",     // secondary accent, the robot's eyes
+        green: "#79B043",    // tertiary
         chalk: "#E9F2E4",    // body text
       },
       fontFamily: {
