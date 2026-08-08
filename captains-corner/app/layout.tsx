@@ -4,11 +4,11 @@ import "./globals.css";
 import { BRAND } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: `${BRAND.name} ${BRAND.descriptor}`,
+  title: `${BRAND.name} — ${BRAND.tagline}`,
   description: BRAND.subhead,
   icons: { icon: "/icon.png", apple: "/apple-touch-icon.png" },
   openGraph: {
-    title: `${BRAND.name} ${BRAND.descriptor}`,
+    title: `${BRAND.name} — ${BRAND.tagline}`,
     description: BRAND.subhead,
     images: ["/og.png"],
   },
@@ -19,11 +19,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <ClerkProvider
       appearance={{
         variables: {
-          colorPrimary: "#C5E659",
-          colorBackground: "#0C1730",
+          colorPrimary: "#BAED48",
+          colorBackground: "#131634",
           colorText: "#E9F2E4",
           colorTextSecondary: "#AFC2B4",
-          colorInputBackground: "#061024",
+          colorInputBackground: "#0A0C24",
           colorInputText: "#E9F2E4",
           // Clerk derives social button borders and text from this. Left dark,
           // "Continue with Google" comes out near-invisible on our background.
